@@ -75,7 +75,38 @@ dbg_send_bytes(const unsigned char *seq, unsigned int len)
     return 0;
   }
 
-  num_bytes = (int)uart0_write(seq, max_len);
+  //@Siva -- Added for proper printing in CCS
+  /* Find the number of new line characters in the sequence. */
+  size_t n = 0;
+  for(size_t i = 0; i < max_len; i++)
+    if(*(seq + i) == '\n')
+      ++n;
+
+  if(n > 0) {
+    /*
+     * Create the second sequence by inserting a carriage return character
+     * before any new line one in the first sequence.
+     */
+    unsigned char ch, seq2[max_len + n];
+    size_t j = 0;
+    for(size_t i = 0; i < max_len; i++) {
+      ch = *(seq + i);
+      if(ch != '\n')
+        seq2[j] = ch;
+      else {
+        seq2[j] = '\r';
+        seq2[++j] = '\n';
+      }
+      ++j;
+    }
+    num_bytes = (int)uart0_write((const unsigned char *)seq2, max_len + n);
+  }
+  else
+    //@Siva -- End of Added for proper printing in CCS
+    num_bytes = (int)uart0_write(seq, max_len);
+
+
+
   return (num_bytes > 0)
          ? num_bytes
          : 0;
