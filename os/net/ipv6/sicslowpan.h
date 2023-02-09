@@ -166,10 +166,6 @@
  * \name LOWPAN_UDP encoding (works together with IPHC)
  * @{
  */
-/**
- * \name LOWPAN_UDP encoding (works together with IPHC)
- * @{
- */
 #define SICSLOWPAN_NHC_UDP_MASK                     0xF8
 #define SICSLOWPAN_NHC_UDP_ID                       0xF0
 #define SICSLOWPAN_NHC_UDP_CHECKSUMC                0x04
@@ -335,8 +331,6 @@ struct sicslowpan_nh_compressor {
   int (* uncompress)(uint8_t *compressed, uint8_t *lowpanbuf, uint8_t *uncompressed_len);
 
 };
-
-extern CC_DEPRECATED("Use UIPBUF_ATTR_RSSI instead") int sicslowpan_get_last_rssi(void);
 
 extern const struct network_driver sicslowpan_driver;
 

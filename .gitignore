@@ -17,6 +17,8 @@ Makefile.target
 Makefile.*.defines
 tools/doxygen/html
 tools/readthedocs/_build
+tools/readthedocs/doc
+tools/readthedocs/examples
 patches-*
 tools/serial-io/tunslip6
 tools/serial-io/serialdump
@@ -29,9 +31,7 @@ COOJA.testlog
 # platform build artifacts
 *.cc2538dk
 *.cooja
-*.jn516x
 *.native
-*.nrf52dk
 *.nrf52840
 *.openmote
 *.simplelink
@@ -41,19 +41,23 @@ COOJA.testlog
 *.z1
 *.zoul
 *.nrf
+*.gecko
 
 # do not ignore platform makefiles
 !Makefile.cc2538dk
 !Makefile.cooja
-!Makefile.jn516x
 !Makefile.native
-!Makefile.nrf52dk
 !Makefile.nrf52840
 !Makefile.openmote
 !Makefile.sky
 !Makefile.cc26x0-cc13x0
 !Makefile.zoul
 !Makefile.nrf
+!Makefile.gecko
+
+# do not ignore images in documentation
+!tools/readthedocs/**/*.png
+!doc/**/*.png
 
 # other nRF52 build artifacts
 *.jlink
@@ -65,6 +69,5 @@ COOJA.testlog
 *.summary
 *.err
 summary
-tests/[0-9][0-9]-*/org/
 tests/18-coap-lwm2m/Californium.properties
 tests/18-coap-lwm2m/leshan-server-demo*.jar

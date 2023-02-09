@@ -81,10 +81,10 @@
 #define LOG_MODULE "6LoWPAN"
 #define LOG_LEVEL LOG_LEVEL_6LOWPAN
 
-#define GET16(ptr,index) (((uint16_t)((ptr)[index] << 8)) | ((ptr)[(index) + 1]))
+#define GET16(ptr,index) (((uint16_t)((ptr)[(index)] << 8)) | ((ptr)[(index) + 1]))
 #define SET16(ptr,index,value) do {     \
-  (ptr)[index] = ((value) >> 8) & 0xff; \
-  (ptr)[index + 1] = (value) & 0xff;    \
+  (ptr)[(index)] = ((value) >> 8) & 0xff; \
+  (ptr)[(index) + 1] = (value) & 0xff;    \
 } while(0)
 
 /** \name Pointers in the packetbuf buffer
@@ -111,6 +111,8 @@
 #define PACKETBUF_6LO_HC_UDP_TTL           3 /* 8 bit */
 #define PACKETBUF_6LO_HC_UDP_PORTS         4 /* 8 bit */
 #define PACKETBUF_6LO_HC_UDP_CHKSUM        5 /* 16 bit */
+
+/** @} */
 
 /** \name Pointers in the sicslowpan and uip buffer
  *  @{
@@ -192,8 +194,6 @@ static uint8_t curr_page;
  */
 static int last_tx_status;
 /** @} */
-
-static int last_rssi;
 
 /* ----------------------------------------------------------------- */
 /* Support for reassembling multiple packets                         */
@@ -434,7 +434,7 @@ copy_frags2uip(int context)
   for(i = 0; i < SICSLOWPAN_FRAGMENT_BUFFERS; i++) {
     /* And also copy all matching fragments */
     if(frag_buf[i].len > 0 && frag_buf[i].index == context) {
-      if((frag_buf[i].offset << 3) + frag_buf[i].len > sizeof(uip_buf)) {
+      if(((size_t)frag_buf[i].offset << 3) + frag_buf[i].len > sizeof(uip_buf)) {
         LOG_WARN("input: invalid fragment offset\n");
         clear_fragments(context);
         return false;
@@ -547,6 +547,7 @@ const uint8_t llprefix[] = {0xfe, 0x80};
 /* TTL uncompression values */
 static const uint8_t ttl_values[] = {0, 1, 64, 255};
 
+/** @} */
 /*--------------------------------------------------------------------*/
 /** \name IPHC related functions
  * @{                                                                 */
@@ -1550,11 +1551,6 @@ send_packet(linkaddr_t *dest)
    */
   packetbuf_set_addr(PACKETBUF_ADDR_RECEIVER, dest);
 
-#if NETSTACK_CONF_BRIDGE_MODE
-  /* This needs to be explicitly set here for bridge mode to work */
-  packetbuf_set_addr(PACKETBUF_ADDR_SENDER,(void*)&uip_lladdr);
-#endif
-
   /* Provide a callback function to receive the result of
      a packet transmission. */
   NETSTACK_MAC.send(&packet_sent, NULL);
@@ -1730,18 +1726,21 @@ output(const linkaddr_t *localdest)
     /* sum of all IPv6 payload that goes to non-first and non-last fragments */
     int middle_fragn_total_payload = MAX(total_payload - frag1_payload - last_fragn_max_payload, 0);
     /* Ceiling of: 2 + middle_fragn_total_payload / fragn_max_payload */
-    int fragment_count = 2;
+    unsigned fragment_count = 2;
     if(middle_fragn_total_payload > 0) {
       fragment_count += 1 + (middle_fragn_total_payload - 1) / fragn_max_payload;
     }
 
-    int freebuf = queuebuf_numfree() - 1;
-    LOG_INFO("output: fragmentation needed, fragments: %u, free queuebufs: %u\n",
-      fragment_count, freebuf);
+    size_t free_bufs = queuebuf_numfree();
+    LOG_INFO("output: fragmentation needed. fragments: %u, free queuebufs: %zu\n",
+      fragment_count, free_bufs);
 
-    if(freebuf < fragment_count) {
-      LOG_WARN("output: dropping packet, not enough free bufs (needed: %u, free: %u)\n",
-        fragment_count, freebuf);
+    /* Keep one queuebuf in reserve for certain protocol implementations
+       at other layers. */
+    size_t needed_bufs = fragment_count + 1;
+    if(free_bufs < needed_bufs) {
+      LOG_WARN("output: dropping packet, not enough free bufs (needed: %zu, free: %zu)\n",
+        needed_bufs, free_bufs);
       return 0;
     }
 
@@ -1894,7 +1893,6 @@ input(void)
 
   /* Save the RSSI and LQI of the incoming packet in case the upper layer will
      want to query us for it later. */
-  last_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
   uipbuf_set_attr(UIPBUF_ATTR_RSSI, packetbuf_attr(PACKETBUF_ATTR_RSSI));
   uipbuf_set_attr(UIPBUF_ATTR_LINK_QUALITY, packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY));
 
@@ -2026,12 +2024,12 @@ input(void)
 
   /* Sanity-check size of incoming packet to avoid buffer overflow */
   {
-    int req_size = uncomp_hdr_len + (uint16_t)(frag_offset << 3)
+    unsigned int req_size = uncomp_hdr_len + (uint16_t)(frag_offset << 3)
         + packetbuf_payload_len;
     if(req_size > sizeof(uip_buf)) {
 #if SICSLOWPAN_CONF_FRAG
       LOG_ERR(
-          "input: packet and fragment context %u dropped, minimum required IP_BUF size: %d+%d+%d=%d (current size: %u)\n",
+          "input: packet and fragment context %u dropped, minimum required IP_BUF size: %d+%d+%d=%u (current size: %u)\n",
           frag_context,
           uncomp_hdr_len, (uint16_t)(frag_offset << 3),
           packetbuf_payload_len, req_size, (unsigned)sizeof(uip_buf));
@@ -2176,12 +2174,6 @@ sicslowpan_init(void)
 #endif /* SICSLOWPAN_CONF_MAX_ADDR_CONTEXTS > 1 */
 
 #endif /* SICSLOWPAN_COMPRESSION == SICSLOWPAN_COMPRESSION_IPHC */
-}
-/*--------------------------------------------------------------------*/
-int
-sicslowpan_get_last_rssi(void)
-{
-  return last_rssi;
 }
 /*--------------------------------------------------------------------*/
 const struct network_driver sicslowpan_driver = {

@@ -61,12 +61,6 @@ rtimer_arch_init(void)
   return;
 }
 /*---------------------------------------------------------------------------*/
-/**
- * \brief Schedules an rtimer task to be triggered at time t
- * \param t The time when the task will need executed. This is an absolute
- *          time, in other words the task will be executed AT time \e t,
- *          not IN \e t ticks
- */
 void
 rtimer_arch_schedule(rtimer_clock_t t)
 {
@@ -83,8 +77,8 @@ rtimer_arch_schedule(rtimer_clock_t t)
    * New value must be 5 ticks in the future. The ST may tick once while we're
    * writing the registers. We play it safe here and we add a bit of leeway
    */
-  if((int32_t)(t - now) < 7) {
-    t = now + 7;
+  if(!RTIMER_CLOCK_LT(now, t - RTIMER_GUARD_TIME)) {
+    t = now + RTIMER_GUARD_TIME;
   }
 
   /* ST0 latches ST[1:3] and must be written last */
